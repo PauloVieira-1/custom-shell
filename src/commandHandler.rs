@@ -2,32 +2,69 @@ use std::env;
 use std::path::Path;
 use std::io::{self, Error, ErrorKind};
 use std::fs::File;
+use std::process::{Command as ProcCommand, Stdio}; // Avoids enum name clash
 
+enum Command {
+    CD,
+    LS,
+    MKDIR,
+    PLUSPLUS,
+    MINUSMINUS,
+    KILL,
+    UNKNOWN,
+}
+
+/// Handles various commands and executes corresponding actions.
 pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Result<(), io::Error> {
-    match command {
-        "cd" => {
+    // Will store output from a previous command for piping
+    let mut previous_stdout: Option<std::process::ChildStdout> = None;
+
+    match get_command_enum(command) {
+        Command::CD => {
             let new_dir = args.clone().next().unwrap_or("/");
             let root = Path::new(new_dir);
             env::set_current_dir(&root).map_err(|e| {
                 Error::new(e.kind(), format!("cd: {}: {}", new_dir, e))
             })
-        },
-        "ls" => {
-            let path = args.clone().next().unwrap_or(".");
-            let root = Path::new(path);
-            print!("\n");
-            for entry in root.read_dir()? {
-                let entry = entry?;
-                println!("\t> {}", entry.file_name().to_string_lossy());
+        }
+        Command::LS => {
+            // Check for pipe
+            if peek_next(&mut args) == Some("|".to_string()) {
+                args.next(); // consume the "|"
+                if let Some(next_cmd) = args.next() {
+                    // First command: ls
+                    let ls_child = ProcCommand::new("ls")
+                        .stdout(Stdio::piped())
+                        .spawn()
+                        .map_err(|_| Error::new(ErrorKind::NotFound, "ls not found"))?;
+
+                    // Second command: wc
+                    let mut wc_child = ProcCommand::new(next_cmd)
+                        .stdin(Stdio::from(ls_child.stdout.unwrap()))
+                        .stdout(Stdio::inherit())
+                        .spawn()
+                        .map_err(|_| Error::new(ErrorKind::NotFound, format!("{} not found", next_cmd)))?;
+
+                    wc_child.wait().unwrap();
+                    return Ok(());
+                }
             }
-            print!("\n");
+
+            // Normal ls without piping
+            let path = args.clone().next().unwrap_or(".");
+            print_ls(&path);
             Ok(())
-        },
-        "++" => {
+        }
+        Command::MKDIR => {
+            let dir_name = args.next().unwrap();
+            std::fs::create_dir_all(dir_name).unwrap();
+            Ok(())
+        }
+        Command::PLUSPLUS => {
             File::create(format!("new_file.{}", args.next().unwrap()))?;
             Ok(())
-        },
-       "--" => {
+        }
+        Command::MINUSMINUS => {
             let file_name = match args.next() {
                 Some(name) => name,
                 None => return Err(Error::new(ErrorKind::InvalidInput, "No file specified")),
@@ -53,9 +90,49 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
             }
 
             Ok(())
-        },
-        "exit" => std::process::exit(0),
-        _ => Err(Error::new(ErrorKind::NotFound, "Command not found")),
+        }
+        Command::KILL => std::process::exit(0),
+        Command::UNKNOWN => Err(Error::new(ErrorKind::NotFound, "Command not found")),
     }
 }
 
+/// Maps a given command string to its corresponding enum variant.
+fn get_command_enum(command: &str) -> Command {
+    match command {
+        "cd" => Command::CD,
+        "ls" => Command::LS,
+        "mkdir" => Command::MKDIR,
+        "++" => Command::PLUSPLUS,
+        "--" => Command::MINUSMINUS,
+        "kill" => Command::KILL,
+        _ => Command::UNKNOWN,
+    }
+}
+
+
+/// Peek at the next argument in the iterator, without consuming it.
+/// Useful for error checking without advancing the iterator.
+///
+fn peek_next(args: &mut std::str::SplitWhitespace) -> Option<String> {
+    args.clone().next().map(|s| s.to_string())
+}
+
+/// Prints the contents of the directory specified by the given path.
+///
+/// # Arguments
+///
+/// * `path` - A string slice that holds the path of the directory to list.
+///
+/// This function reads the directory entries and prints each entry's file name
+/// to the standard output. It assumes the directory exists and panics if there
+/// is an error reading the directory or its entries.
+
+fn print_ls(path: &str) {
+    print!("\n");
+    let root = Path::new(path);
+    for entry in root.read_dir().unwrap() {
+        let entry = entry.unwrap();
+        println!("\t> {}", entry.file_name().to_string_lossy());
+    }
+    print!("\n");
+}
