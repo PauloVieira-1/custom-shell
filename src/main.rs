@@ -1,7 +1,10 @@
-use std::io::{stdin, stdout, Write};
+mod commandHandler;
+
+use commandHandler::handleCommand;
+use std::io::{stdin, stdout, Write, Result};
 use std::process::Command;
 
-fn main() {
+fn main() -> Result<()> {
 
     loop {
         print!("[<Command>] ");
@@ -15,11 +18,11 @@ fn main() {
         let command = parts.next().unwrap();
         let args = parts;
 
-    
+        handleCommand(command.to_string(), &args);
+
         let mut child = Command::new(command).args(args).spawn().unwrap();
-        
         child.wait().unwrap();
     }
 
-
+    Ok(())
 }
