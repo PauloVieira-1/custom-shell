@@ -172,11 +172,19 @@ fn peek_next(args: &mut std::str::SplitWhitespace) -> Option<String> {
 /// to the standard output. It assumes the directory exists and panics if there
 /// is an error reading the directory or its entries.
 fn print_ls(path: &str) {
-    print!("\n");
-    let root = Path::new(path);
-    for entry in root.read_dir().unwrap() {
-        let entry = entry.unwrap();
-        println!("\t> {}", entry.file_name().to_string_lossy());
+    println!();
+    let root = std::path::Path::new(path);
+    match root.read_dir() {
+        Ok(entries) => {
+            for entry_res in entries {
+                if let Ok(entry) = entry_res {
+                    // Print file names without extra spaces, flush after each
+                    print!("\t> {}\n", entry.file_name().to_string_lossy().trim_start());
+                    stdout().flush().unwrap();
+                }
+            }
+        },
+        Err(e) => eprintln!("Failed to read directory {}: {}", path, e),
     }
-    print!("\n");
+    println!();
 }
