@@ -15,7 +15,9 @@ enum Command {
     MINUSMINUS,
     KILL,
     UNKNOWN,
-    PWD
+    PWD,
+    HELP,
+    DIRCONTENT
 }
 
 /// Handles various commands and executes corresponding actions.
@@ -119,14 +121,14 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
                 return Ok(());
             }
 
-            print!("{}", format!("Are you sure you want to delete {} (yes/no)?\n", file_name).red());
+            print!("{}", format!("\nAre you sure you want to delete {} (yes/no)?\n", file_name).red());
 
             let mut input = String::new();
             io::stdin().read_line(&mut input)?;
 
             if input.trim() == "yes" {
                 std::fs::remove_file(&full_path)?;
-                println!("File deleted: {}", file_name);
+                println!("{}", format!("\nFile deleted: {}\n", file_name).green());
             } else {
                 println!("Deletion canceled.");
             }
@@ -136,6 +138,16 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
         Command::KILL => std::process::exit(0),
         Command::PWD => {
             println!("{}", env::current_dir().unwrap().display());
+            Ok(())
+        },
+        Command::HELP => {
+            print_help();
+            Ok(())
+        },
+        Command::DIRCONTENT => {
+            let new_dir = args.clone().next().unwrap_or("/");
+            let root = Path::new(new_dir);
+            get_dir_content(&root.display().to_string());
             Ok(())
         },
         Command::UNKNOWN => Err(Error::new(ErrorKind::NotFound, "Command not found")),
@@ -152,6 +164,8 @@ fn get_command_enum(command: &str) -> Command {
         "--" => Command::MINUSMINUS,
         "pwd" => Command::PWD,
         "kill" => Command::KILL,
+        "help" => Command::HELP,
+        "dircontent" => Command::DIRCONTENT,
         _ => Command::UNKNOWN,
     }
 }
@@ -187,4 +201,86 @@ fn print_ls(path: &str) {
         Err(e) => eprintln!("Failed to read directory {}: {}", path, e),
     }
     println!();
+}
+
+/// Prints a help message to the standard output.
+///
+/// This function prints a summary of the available commands and their
+/// respective usage.
+fn print_help() {
+
+    println!("{}", "\n--------------------\n".blue());
+            println!("{}", "Commands:\n".bold());
+
+            println!("{}", "Usage:".yellow());
+            println!("  cd [directory]");
+            println!("  ls [directory]");
+            println!("  mkdir [directory]");
+            println!("  ++ [file_name]");
+            println!("  -- [file_name]");
+            println!("  kill");
+            println!("  pwd");
+            println!("  help");
+
+            println!("{}", "\nFunctionality:".yellow());
+            println!(
+                "{}",
+                "  cd      : Navigates to the specified directory.".italic()
+            );
+            println!(
+                "{}",
+                "  ls      : Displays the files and directories within the specified directory.".italic()
+            );
+            println!("{}", "  mkdir   : Creates a new directory with the given name.".italic());
+            println!("{}", "  ++      : Creates a new file with the specified name.".italic());
+            println!("{}", "  --      : Deletes the specified file.".italic());
+            println!("{}", "  kill    : Terminates the shell session.".italic());
+            println!(
+                "{}",
+                "  pwd     : Displays the path of the current working directory.".italic()
+            );
+            println!(
+                "{}",
+                "  help    : Provides a list of available commands and their descriptions.".italic()
+            );
+
+            println!("{}", "\n--------------------\n".blue());
+
+
+}
+
+
+/// Prints the contents of the specified directory.
+///
+/// This function reads the contents of the directory specified in the `path`
+/// parameter and prints the names of the files and directories within it to the
+/// standard output.
+///
+/// # Arguments
+///
+/// * `path`: The path to the directory to be read.
+fn get_dir_content(path: &str) {
+    // Read the contents of the specified directory
+    let entries = match std::fs::read_dir(path) {
+        Ok(entries) => entries,
+        Err(e) => {
+            eprintln!("Failed to read directory {}: {}", path, e);
+            return;
+        }
+    };
+
+    // Print the directory header
+    println!("{}", "\n--------------------\n".blue());
+    println!("{}", format!("Contents of {}:", path).bold());
+    // Print the contents of the directory
+    for entry in entries {
+        match entry {
+            Ok(entry) => println!("\t> {}", entry.path().display().to_string().replace("src/", "")),
+            Err(e) => {
+                eprintln!("Failed to read entry in {}: {}", path, e);
+            }
+        }
+    }
+    // Print the directory footer
+    println!("{}", "\n--------------------\n".blue());
 }

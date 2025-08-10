@@ -6,6 +6,7 @@ use crossterm::{
 };
 use std::io::{stdin, stdout, Write, Result};
 use std::fs::File;
+use std::io::{BufReader, BufRead};
 
 mod input_validator;
 mod command_handler;
@@ -152,8 +153,6 @@ fn write_to_history(input: String, history_file: &mut File) -> Result<()> {
 /// A string containing the last line in the history file. If the file is empty,
 /// an empty string is returned.
 fn get_prev_command() -> Result<String> {
-    use std::fs::File;
-    use std::io::{BufReader, BufRead};
     let file = File::open(format!("{}/.mysh_history", get_home_dir()))?;
     let reader = BufReader::new(file);
     let lines: Vec<String> = reader
