@@ -2,7 +2,7 @@ use std::env;
 use std::path::Path;
 use std::io::{self, Error, ErrorKind};
 use std::fs::File;
-use std::process::{Command as ProcCommand, Stdio}; // Avoids enum name clash
+use std::process::{Command as ProcCommand, Stdio}; 
 
 enum Command {
     CD,
