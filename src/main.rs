@@ -6,7 +6,7 @@ use std::process::Command;
 
 fn main() -> Result<()> {
     loop {
-        print!("[<Command>] ");
+        print!("[<Prompt>] ");
         stdout().flush()?; // remove unwrap before ?
 
         let mut input = String::new();

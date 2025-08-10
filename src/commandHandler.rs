@@ -1,8 +1,9 @@
 use std::env;
 use std::path::Path;
-use std::io::{self, Error, ErrorKind};
+use std::io::{self, Error, ErrorKind, Write, stdout};
 use std::fs::File;
 use std::process::{Command as ProcCommand, Stdio}; 
+use colored::Colorize;
 
 enum Command {
     CD,
@@ -12,6 +13,7 @@ enum Command {
     MINUSMINUS,
     KILL,
     UNKNOWN,
+    PWD
 }
 
 /// Handles various commands and executes corresponding actions.
@@ -61,7 +63,11 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
             Ok(())
         }
         Command::PLUSPLUS => {
-            File::create(format!("new_file.{}", args.next().unwrap()))?;
+            if args.clone().next().is_none() {
+                return Err(Error::new(ErrorKind::InvalidInput, "No file specified"));
+            }
+            File::create(format!("{}", args.next().unwrap()))?;
+            println!("{}", format!("File created Successfully!").green());
             Ok(())
         }
         Command::MINUSMINUS => {
@@ -70,14 +76,16 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
                 None => return Err(Error::new(ErrorKind::InvalidInput, "No file specified")),
             };
 
-            println!("Are you sure you want to delete {} \n-> (yes/no)?", file_name);
-
+            
             let dir = env::current_dir()?;
             let full_path = dir.join(file_name);
-
+            
             if !full_path.exists() {
-                return Err(Error::new(ErrorKind::NotFound, "File not found"));
+                println!("{}", format!("File not found: {}", file_name).red());
+                return Ok(());
             }
+            
+            print!("{}", format!("Are you sure you want to delete {} (yes/no)?\n", file_name).red());
 
             let mut input = String::new();
             io::stdin().read_line(&mut input)?;
@@ -92,6 +100,7 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
             Ok(())
         }
         Command::KILL => std::process::exit(0),
+        Command::PWD => {println!("{}", env::current_dir().unwrap().display()); Ok(())},
         Command::UNKNOWN => Err(Error::new(ErrorKind::NotFound, "Command not found")),
     }
 }
@@ -104,6 +113,7 @@ fn get_command_enum(command: &str) -> Command {
         "mkdir" => Command::MKDIR,
         "++" => Command::PLUSPLUS,
         "--" => Command::MINUSMINUS,
+        "pwd" => Command::PWD,
         "kill" => Command::KILL,
         _ => Command::UNKNOWN,
     }
