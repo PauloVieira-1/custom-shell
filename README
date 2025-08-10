@@ -1,0 +1,78 @@
+
+
+````markdown
+# Custom Shell (Educational)
+
+**Custom Shell** is an educational Rust-based command-line shell aimed at teaching systems programming concepts such as:
+
+- Command parsing
+- Execution flow
+- I/O redirection
+- Piping
+- Background processes
+
+---
+
+##  Features
+
+- Built-in commands (e.g., `cd`, `exit`)
+- External command execution
+- Input/output redirection (`<`, `>`)
+- Piping (`|`)
+- Background job (`&`)
+- (Optional) Command history and auto-completion
+
+---
+
+##  Installation
+
+```bash
+git clone https://github.com/PauloVieira-1/custom-shell.git
+cd custom-shell
+cargo build --release
+````
+
+---
+
+## Usage
+
+```bash
+./target/release/custom-shell
+```
+
+Then enter commands like:
+
+```bash
+ls -l | grep "txt" > result.txt &
+cd ..
+exit
+```
+
+---
+
+## How It Works
+
+Your shell’s architecture likely includes:
+
+1. **Parser**: Tokenizes and interprets command syntax.
+2. **Executor**: Handles process creation, redirection, and piping.
+3. **Built-ins**: Internal handling of commands that modify shell state (`cd`, `exit`, etc.).
+4. **Job Control**: Supports running tasks in the background with `&`.
+
+---
+
+## Roadmap & Potential Enhancements
+
+Here are some feature ideas to further enrich the project:
+
+* **Command History & Navigation** — Use arrow keys to browse past entries.
+* **Auto-Completion** — Tab-complete filenames and commands.
+* **Environment Variable Expansion** — Support constructs like `$HOME`.
+* **Wildcard / Globbing** — Implement patterns like `*.rs` to match files.
+* **Advanced Piping** — Enable multi-stage pipelines, e.g., `cmd1 | cmd2 | cmd3`.
+* **Signal Handling** — Gracefully manage `Ctrl+C` and other signals.
+* **Subshells & Command Substitution** — Interpret nesting (e.g., `$(date)`).
+* **Aliases & Configuration File** — Add `~/.myshrc` for user customizations.
+* **Syntax Highlighting / Prompt Customization** — Improve usability and aesthetics.
+
+---

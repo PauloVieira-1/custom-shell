@@ -1,3 +1,5 @@
+use crate::input_validator::Validator;
+
 use std::env;
 use std::path::Path;
 use std::io::{self, Error, ErrorKind, Write, stdout};
@@ -18,7 +20,7 @@ enum Command {
 
 /// Handles various commands and executes corresponding actions.
 pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Result<(), io::Error> {
-    // Will store output from a previous command for piping
+
     let mut previous_stdout: Option<std::process::ChildStdout> = None;
 
     match get_command_enum(command) {
@@ -40,7 +42,7 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
                         .spawn()
                         .map_err(|_| Error::new(ErrorKind::NotFound, "ls not found"))?;
 
-                    // Second command: wc
+                    // Second command: wc or other command
                     let mut wc_child = ProcCommand::new(next_cmd)
                         .stdin(Stdio::from(ls_child.stdout.unwrap()))
                         .stdout(Stdio::inherit())
@@ -58,33 +60,65 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
             Ok(())
         }
         Command::MKDIR => {
-            let dir_name = args.next().unwrap();
-            std::fs::create_dir_all(dir_name).unwrap();
+
+            let dir_name = match args.next() {
+                Some(name) => name,
+                None => {
+                    println!("{}", "Error: Missing directory name for mkdir command".red());
+                    return Ok(());  
+                }
+            };
+
+            if let Err(e) = std::fs::create_dir_all(dir_name) {
+                println!("Failed to create directory: {}", e);
+            }
             Ok(())
         }
         Command::PLUSPLUS => {
-            if args.clone().next().is_none() {
-                return Err(Error::new(ErrorKind::InvalidInput, "No file specified"));
+
+            let file_name = match args.next() {
+                Some(name) => name,
+                None => {
+                    println!("{}", "Error: Missing file name argument for ++ command".red());
+                    return Ok(());  
+                }
+            };
+
+            let mut validator = Validator::new();
+            validator.add_rule(("file_name", Box::new(|input: &str| !input.is_empty())));
+            validator.add_rule(("file_does_not_exist", Box::new(|input: &str| !Path::new(input).exists())));
+
+            if !validator.validate(file_name) {
+                println!("{}", format!("Invalid input: {}", file_name).red());
+                return Ok(());  /
             }
-            File::create(format!("{}", args.next().unwrap()))?;
-            println!("{}", format!("File created Successfully!").green());
+
+            File::create(file_name).map_err(|e| {
+                println!("Failed to create file: {}", e);
+                std::io::Error::new(e.kind(), format!("Failed to create file: {}", e))
+            })?;
+
+            println!("{}", format!("\nFile created successfully!\n").green());
             Ok(())
         }
         Command::MINUSMINUS => {
+
             let file_name = match args.next() {
                 Some(name) => name,
-                None => return Err(Error::new(ErrorKind::InvalidInput, "No file specified")),
+                None => {
+                    println!("{}", "Error: No file specified for -- command".red());
+                    return Ok(());
+                }
             };
 
-            
             let dir = env::current_dir()?;
             let full_path = dir.join(file_name);
-            
+
             if !full_path.exists() {
                 println!("{}", format!("File not found: {}", file_name).red());
                 return Ok(());
             }
-            
+
             print!("{}", format!("Are you sure you want to delete {} (yes/no)?\n", file_name).red());
 
             let mut input = String::new();
@@ -100,7 +134,10 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
             Ok(())
         }
         Command::KILL => std::process::exit(0),
-        Command::PWD => {println!("{}", env::current_dir().unwrap().display()); Ok(())},
+        Command::PWD => {
+            println!("{}", env::current_dir().unwrap().display());
+            Ok(())
+        },
         Command::UNKNOWN => Err(Error::new(ErrorKind::NotFound, "Command not found")),
     }
 }
@@ -119,10 +156,8 @@ fn get_command_enum(command: &str) -> Command {
     }
 }
 
-
 /// Peek at the next argument in the iterator, without consuming it.
 /// Useful for error checking without advancing the iterator.
-///
 fn peek_next(args: &mut std::str::SplitWhitespace) -> Option<String> {
     args.clone().next().map(|s| s.to_string())
 }
@@ -136,7 +171,6 @@ fn peek_next(args: &mut std::str::SplitWhitespace) -> Option<String> {
 /// This function reads the directory entries and prints each entry's file name
 /// to the standard output. It assumes the directory exists and panics if there
 /// is an error reading the directory or its entries.
-
 fn print_ls(path: &str) {
     print!("\n");
     let root = Path::new(path);

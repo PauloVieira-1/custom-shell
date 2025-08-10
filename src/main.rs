@@ -1,6 +1,7 @@
-mod commandHandler;
+mod input_validator;
+mod command_handler;
 
-use commandHandler::handleCommand;
+use command_handler::handleCommand;
 use std::io::{stdin, stdout, Write, Result};
 use std::process::Command;
 
@@ -41,3 +42,52 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+
+// ===============================
+//          Feature Plan
+// ===============================
+
+// Command History
+// ------------------------------
+// - Store and navigate through previous commands with ↑/↓ arrow keys.
+// - Optional: Save history to ~/.mysh_history.
+
+// Tab Completion
+// ------------------------------
+// - Auto-complete command names and file paths when pressing Tab.
+
+// Prompt Customization
+// ------------------------------
+// - Allow users to change prompt text and color (e.g., show username@hostname:cwd$).
+
+// Environment Variable Support
+// ------------------------------
+// - Expand $HOME, $PATH, $USER in commands.
+// - Add set and unset commands.
+
+// Alias System
+// ------------------------------
+// - Let users create shortcuts, e.g., alias ll='ls -la'.
+
+// Piping & Redirection Enhancements
+// ------------------------------
+// - Support multiple pipes (cmd1 | cmd2 | cmd3).
+// - Append redirection (>>).
+
+// Wildcards & Globbing
+// ------------------------------
+// - Enable *.txt or file_?.rs matching.
+
+// Background Job Control
+// ------------------------------
+// - Support jobs, fg, bg commands.
+// - Show running jobs when exiting.
+
+// Built-In Help System
+// ------------------------------
+// - Type help to show available commands and syntax.
+
+// Subshell Execution
+// ------------------------------
+// - Support $(command) or backticks `command` for substitution.
+
