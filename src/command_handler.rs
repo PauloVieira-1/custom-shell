@@ -220,6 +220,7 @@ fn print_help() {
             println!("  -- [file_name]");
             println!("  kill");
             println!("  pwd");
+            println!("  dircontent [directory]");
             println!("  help");
 
             println!("{}", "\nFunctionality:".yellow());
@@ -238,6 +239,10 @@ fn print_help() {
             println!(
                 "{}",
                 "  pwd     : Displays the path of the current working directory.".italic()
+            );
+            println!(
+                "{}",
+                "  dircontent : Lists the contents of the specified directory.".italic()
             );
             println!(
                 "{}",
