@@ -7,47 +7,21 @@ use crossterm::{
 use std::io::{stdin, stdout, Write, Result};
 use std::fs::File;
 use std::io::{BufReader, BufRead};
+use std::path::Path;
+use std::fs::OpenOptions;
 
 mod input_validator;
 mod command_handler;
 use command_handler::handleCommand;
 
-/// Clears the current line in the terminal.
-///
-/// This function is used to erase the current command line input. It does so by
-/// moving the cursor to the beginning of the current line and clearing the line.
-/// After clearing the line, the cursor is moved back to the beginning of the line.
-///
-/// # Errors
-///
-/// If there is an error clearing the line or moving the cursor, an error is
-/// returned.
-fn clear_current_line() -> Result<()> {
-    let mut stdout = stdout();
-    execute!(
-        stdout,
-        Clear(ClearType::CurrentLine),
-        MoveToColumn(0)
-    )?;
-    stdout.flush()?;
-    Ok(())
-}
-
-/// Prints the shell's prompt to the standard output.
-///
-/// # Errors
-/// Returns an error if there is a problem printing to the standard output.
-fn print_prompt() -> Result<()> {
-    print!("[<Prompt>] ");
-    stdout().flush()?;
-    Ok(())
-}
 
 fn main() -> Result<()> {
    
-    // create history file
-    let mut history_file = File::create(format!("{}/.mysh_history", get_home_dir()))?;
-    
+    // create history file and config file 
+
+    let mut history_file = initialize_history_file();
+    let mut config_file = initialize_config_file();
+
     // create input buffer
     let mut input = String::new();
 
@@ -123,6 +97,77 @@ fn main() -> Result<()> {
     }
 }
 
+
+/// Initializes the shell's history file.
+///
+/// The history file is a file that stores the shell's history of commands. It is
+/// created if it does not already exist. The function returns a handle to the
+/// file.
+
+fn initialize_history_file() -> File {
+    let history_path = format!("{}/.mysh_history", get_home_dir());
+    if !Path::new(&history_path).exists() {
+        File::create(&history_path).unwrap();
+    }
+
+    OpenOptions::new()
+        .read(true)
+        .append(true) // so new history lines are added, not overwrite
+        .open(&history_path)
+        .unwrap()
+}
+
+
+/// Initializes the shell's configuration file.
+///
+/// The configuration file is a file that stores the shell's configuration.
+/// It is created if it does not already exist. The function returns a handle
+/// to the file.
+fn initialize_config_file() -> File {
+    let config_path = format!("{}/.mysh_config", get_home_dir());
+    if !Path::new(&config_path).exists() {
+        File::create(&config_path).unwrap();
+    }
+
+    OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&config_path)
+        .unwrap()
+    
+}
+
+/// Clears the current line in the terminal.
+///
+/// This function is used to erase the current command line input. It does so by
+/// moving the cursor to the beginning of the current line and clearing the line.
+/// After clearing the line, the cursor is moved back to the beginning of the line.
+///
+/// # Errors
+///
+/// If there is an error clearing the line or moving the cursor, an error is
+/// returned.
+fn clear_current_line() -> Result<()> {
+    let mut stdout = stdout();
+    execute!(
+        stdout,
+        Clear(ClearType::CurrentLine),
+        MoveToColumn(0)
+    )?;
+    stdout.flush()?;
+    Ok(())
+}
+
+/// Prints the shell's prompt to the standard output.
+///
+/// # Errors
+/// Returns an error if there is a problem printing to the standard output.
+fn print_prompt() -> Result<()> {
+    print!("[<Prompt>] ");
+    stdout().flush()?;
+    Ok(())
+}
+
 /// Returns the path to the user's home directory.
 ///
 /// # Panics
@@ -141,7 +186,6 @@ fn get_home_dir() -> String {
 /// # Errors
 /// This function will panic if there is an error writing to the file.
 fn write_to_history(input: String, history_file: &mut File) -> Result<()> {
-    use std::io::Write;
     history_file.write_all(input.as_bytes())?;
     history_file.write_all(b"\n")?;
     Ok(())
