@@ -90,7 +90,7 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
 
             if !validator.validate(file_name) {
                 println!("{}", format!("Invalid input: {}", file_name).red());
-                return Ok(());  /
+                return Ok(());  
             }
 
             File::create(file_name).map_err(|e| {
