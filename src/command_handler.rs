@@ -30,7 +30,7 @@ pub fn execute_command(command: &str, mut args: std::str::SplitWhitespace) -> Re
     let mut args = args;
     let mut run = |f: fn(&mut std::str::SplitWhitespace) -> Result<(), Error>| -> Result<(), Error> {
     f(&mut args)
-    };
+    }; // this function is a closure that captures the args variable and passes it to the function
 
     let command = get_command_enum(command);
 
