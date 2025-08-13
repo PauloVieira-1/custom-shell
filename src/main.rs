@@ -24,7 +24,7 @@ use helpers::{
 };
 
 mod command_handler;
-use command_handler::handleCommand;
+use command_handler::execute_command;
 
 
 
@@ -117,7 +117,7 @@ fn main() -> Result<()> {
         };
         let args = parts;
 
-        if let Err(e) = handleCommand(command, args.clone()) {
+        if let Err(e) = execute_command(command, args.clone()) {
             println!("{}", e);
         }
 

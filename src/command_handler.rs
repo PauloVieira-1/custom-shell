@@ -24,49 +24,125 @@ enum Command {
 }
 
 /// Handles various commands and executes corresponding actions.
-pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Result<(), io::Error> {
+pub fn execute_command(command: &str, mut args: std::str::SplitWhitespace) -> Result<(), io::Error> {
 
-    let mut previous_stdout: Option<std::process::ChildStdout> = None;
+    // Helper to wrap functions that return () into Result<(), Error>
+    let mut args = args;
+    let mut run = |f: fn(&mut std::str::SplitWhitespace) -> Result<(), Error>| -> Result<(), Error> {
+    f(&mut args)
+    };
 
-    match get_command_enum(command) {
-        Command::CD => {
-            let new_dir = args.clone().next().unwrap_or("/");
-            let root = Path::new(new_dir);
-            env::set_current_dir(&root).map_err(|e| {
-                Error::new(e.kind(), format!("cd: {}: {}", new_dir, e))
-            })
-        }
-        Command::LS => {
-            // Check for pipe
-            if peek_next(&mut args) == Some("|".to_string()) {
-                args.next(); // consume the "|"
-                if let Some(next_cmd) = args.next() {
-                    // First command: ls
-                    let ls_child = ProcCommand::new("ls")
-                        .stdout(Stdio::piped())
-                        .spawn()
-                        .map_err(|_| Error::new(ErrorKind::NotFound, "ls not found"))?;
+    let command = get_command_enum(command);
 
-                    // Second command: wc or other command
-                    let mut wc_child = ProcCommand::new(next_cmd)
-                        .stdin(Stdio::from(ls_child.stdout.unwrap()))
-                        .stdout(Stdio::inherit())
-                        .spawn()
-                        .map_err(|_| Error::new(ErrorKind::NotFound, format!("{} not found", next_cmd)))?;
-
-                    wc_child.wait().unwrap();
-                    return Ok(());
-                }
-            }
-
-            // Normal ls without piping
-            let path = args.clone().next().unwrap_or(".");
-            print_ls(&path);
+    match command {
+        Command::CD => run(handle_current_dir),
+        Command::LS => {run(list_dir)},
+        Command::MKDIR => run(make_dir),
+        Command::PLUSPLUS => run(make_file),
+        Command::MINUSMINUS => run(remove_file),
+        Command::KILL => std::process::exit(0),
+        Command::PWD => {
+            println!("{}", std::env::current_dir()?.display());
             Ok(())
         }
-        Command::MKDIR => {
+        Command::HELP => { print_help(); Ok(()) },
+        Command::DIRCONTENT => run(handle_dircontent),
+        Command::CLEAR => { let _ = clear_history(); Ok(()) },
+        Command::UNKNOWN => Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Command not found")),
+    }
 
-            let dir_name = match args.next() {
+
+}
+
+
+/// Maps a given command string to its corresponding enum variant.
+fn get_command_enum(command: &str) -> Command {
+    match command {
+        "cd" => Command::CD,
+        "ls" => Command::LS,
+        "mkdir" => Command::MKDIR,
+        "++" => Command::PLUSPLUS,
+        "--" => Command::MINUSMINUS,
+        "pwd" => Command::PWD,
+        "kill" => Command::KILL,
+        "help" => Command::HELP,
+        "dircontent" => Command::DIRCONTENT,
+        "clear" => Command::CLEAR,
+        _ => Command::UNKNOWN,
+    }
+}
+
+
+    /// Changes the current directory to the given argument.
+    ///
+    /// If no argument is given, the current directory is not changed.
+    ///
+    /// # Errors
+    ///
+    /// If the specified directory does not exist, an error is returned.
+fn handle_current_dir(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
+    let new_dir = args.clone().next().unwrap_or("/");
+    let root = Path::new(new_dir);
+    env::set_current_dir(&root).map_err(|e| {
+                Error::new(e.kind(), format!("cd: {}: {}", new_dir, e))
+            })
+    
+}
+
+    /// Execute ls command with optional piping to another command.
+    ///
+    /// If the first argument is a pipe ("|"), it will be interpreted as a pipe
+    /// command. In this case, the second argument will be executed with the
+    /// output of the first command as its standard input.
+    ///
+    /// If there is no pipe argument, the command will be interpreted as a normal
+    /// ls command.
+    ///
+    /// # Errors
+    ///
+    /// If the command is not found or there is another error executing the
+    /// command, an error is returned.
+fn list_dir(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
+    // Normal & pipe handling
+    if peek_next(args) == Some("|".to_string()) {
+        args.next(); // consume "|"
+        if let Some(next_cmd) = args.next() {
+            let ls_child = ProcCommand::new("ls")
+                .stdout(Stdio::piped())
+                .spawn()
+                .map_err(|_| Error::new(ErrorKind::NotFound, "ls not found"))?;
+
+            let stdout = ls_child.stdout.ok_or_else(|| Error::new(ErrorKind::Other, "Failed to capture ls stdout"))?;
+
+            let mut wc_child = ProcCommand::new(next_cmd)
+                .stdin(Stdio::from(stdout))
+                .stdout(Stdio::inherit())
+                .spawn()
+                .map_err(|_| Error::new(ErrorKind::NotFound, format!("{} not found", next_cmd)))?;
+
+            wc_child.wait().map_err(|e| Error::new(ErrorKind::Other, e))?;
+            return Ok(());
+        }
+    }
+
+    // Normal ls without piping
+    let path = args.next().unwrap_or(".");
+    print_ls(path);
+    Ok(())
+}
+
+
+    /// Creates a new directory with the given name.
+    ///
+    /// This function takes one argument which is the name of the directory to be
+    /// created. If the argument is not given, an error is returned.
+    ///
+    /// # Errors
+    ///
+    /// If the directory already exists, or if there is an error creating the
+    /// directory, an error is returned.
+fn make_dir(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
+    let dir_name = match args.next() {
                 Some(name) => name,
                 None => {
                     println!("{}", "Error: Missing directory name for mkdir command".red());
@@ -78,10 +154,19 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
                 println!("Failed to create directory: {}", e);
             }
             Ok(())
-        }
-        Command::PLUSPLUS => {
+}
 
-            let file_name = match args.next() {
+    /// Creates a new file with the given name.
+    ///
+    /// This function takes one argument which is the name of the file to be
+    /// created. If the argument is not given, an error is returned.
+    ///
+    /// # Errors
+    ///
+    /// If the file already exists or if there is an error creating the file,
+    /// an error is returned.
+fn make_file(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
+    let file_name = match args.next() {
                 Some(name) => name,
                 None => {
                     println!("{}", "Error: Missing file name argument for ++ command".red());
@@ -105,10 +190,23 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
 
             println!("{}", format!("\nFile created successfully!\n").green());
             Ok(())
-        }
-        Command::MINUSMINUS => {
+}
 
-            let file_name = match args.next() {
+    /// Deletes a file with the given name.
+    ///
+    /// This function takes one argument which is the name of the file to be
+    /// deleted. If the argument is not given, an error is returned.
+    ///
+    /// Before deleting the file, the function will prompt the user to confirm
+    /// the deletion. If the user types 'yes', the file will be deleted.
+    /// Otherwise, the deletion will be canceled.
+    ///
+    /// # Errors
+    ///
+    /// If the file does not exist or if there is an error deleting the file,
+    /// an error is returned.
+fn remove_file(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
+    let file_name = match args.next() {
                 Some(name) => name,
                 None => {
                     println!("{}", "Error: No file specified for -- command".red());
@@ -137,45 +235,21 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
             }
 
             Ok(())
-        }
-        Command::KILL => std::process::exit(0),
-        Command::PWD => {
-            println!("{}", env::current_dir().unwrap().display());
-            Ok(())
-        },
-        Command::HELP => {
-            print_help();
-            Ok(())
-        },
-        Command::DIRCONTENT => {
-            let new_dir = args.clone().next().unwrap_or("/");
-            let root = Path::new(new_dir);
-            get_dir_content(&root.display().to_string());
-            Ok(())
-        },
-        Command::CLEAR => {
-            let _ = clear_history();
-            Ok(())
-        },
-        Command::UNKNOWN => Err(Error::new(ErrorKind::NotFound, "Command not found")),
-    }
 }
 
-/// Maps a given command string to its corresponding enum variant.
-fn get_command_enum(command: &str) -> Command {
-    match command {
-        "cd" => Command::CD,
-        "ls" => Command::LS,
-        "mkdir" => Command::MKDIR,
-        "++" => Command::PLUSPLUS,
-        "--" => Command::MINUSMINUS,
-        "pwd" => Command::PWD,
-        "kill" => Command::KILL,
-        "help" => Command::HELP,
-        "dircontent" => Command::DIRCONTENT,
-        "clear" => Command::CLEAR,
-        _ => Command::UNKNOWN,
-    }
+    /// Lists the contents of the directory specified by the given path.
+    ///
+    /// If no argument is given, the current directory is used.
+    ///
+    /// # Errors
+    ///
+    /// If there is an error reading the directory or its entries, an error is
+    /// returned.
+fn handle_dircontent(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
+    let new_dir = args.clone().next().unwrap_or("/");
+    let root = Path::new(new_dir);
+    get_dir_content(&root.display().to_string());
+    Ok(())
 }
 
 /// Peek at the next argument in the iterator, without consuming it.
