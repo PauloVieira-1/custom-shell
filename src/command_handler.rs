@@ -1,4 +1,5 @@
 use crate::input_validator::Validator;
+use crate::helpers::{get_home_dir, initialize_history_file};
 
 use std::env;
 use std::path::Path;
@@ -6,6 +7,7 @@ use std::io::{self, Error, ErrorKind, Write, stdout};
 use std::fs::File;
 use std::process::{Command as ProcCommand, Stdio}; 
 use colored::Colorize;
+use std::fs::OpenOptions;
 
 enum Command {
     CD,
@@ -17,7 +19,8 @@ enum Command {
     UNKNOWN,
     PWD,
     HELP,
-    DIRCONTENT
+    DIRCONTENT,
+    CLEAR
 }
 
 /// Handles various commands and executes corresponding actions.
@@ -150,6 +153,10 @@ pub fn handleCommand(command: &str, mut args: std::str::SplitWhitespace) -> Resu
             get_dir_content(&root.display().to_string());
             Ok(())
         },
+        Command::CLEAR => {
+            let _ = clear_history();
+            Ok(())
+        },
         Command::UNKNOWN => Err(Error::new(ErrorKind::NotFound, "Command not found")),
     }
 }
@@ -166,6 +173,7 @@ fn get_command_enum(command: &str) -> Command {
         "kill" => Command::KILL,
         "help" => Command::HELP,
         "dircontent" => Command::DIRCONTENT,
+        "clear" => Command::CLEAR,
         _ => Command::UNKNOWN,
     }
 }
@@ -288,4 +296,28 @@ fn get_dir_content(path: &str) {
     }
     // Print the directory footer
     println!("{}", "\n--------------------\n".blue());
+}
+
+/// Clears the contents of the given file.
+///
+/// This function truncates the length of the file to zero, effectively clearing
+/// its contents.
+///
+/// # Arguments
+///
+/// * `file`: The file to clear.
+///
+/// # Errors
+///
+/// If there is an error opening the file or setting its length, an error is
+/// returned.
+fn clear_history() -> Result<(), std::io::Error> {
+
+    let history_path = format!("{}/.mysh_history", get_home_dir());
+    std::fs::remove_file(history_path).unwrap();
+    
+    let mut history_file = initialize_history_file();
+    history_file.set_len(0);
+
+    Ok(())
 }
