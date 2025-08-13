@@ -20,6 +20,8 @@ fn main() -> Result<()> {
     // create history file and config file 
 
     let mut history_file = initialize_history_file();
+    let mut commands_list = read_history(&history_file);
+    let mut index = commands_list.len();
     let mut config_file = initialize_config_file();
 
     // create input buffer
@@ -36,7 +38,7 @@ fn main() -> Result<()> {
             if let Event::Key(key) = read()? {
                 match key.code {
                     KeyCode::Up => {
-                        if let Ok(prev_command) = get_prev_command() {
+                        let prev_command = get_prev_command(&mut commands_list, &mut index); 
                             // erase current input line
                             for _ in 0..input.len() {
                                 print!("\x08 \x08");
@@ -45,7 +47,9 @@ fn main() -> Result<()> {
                             input = prev_command;
                             print!("{}", input);
                             stdout().flush()?;
-                        }
+
+                    
+                        
                     }
                     KeyCode::Char(c) => {
                         input.push(c);
@@ -72,7 +76,9 @@ fn main() -> Result<()> {
         }
 
         // Write to history
+        commands_list.push(input.clone());
         write_to_history(input.clone(), &mut history_file)?;
+        index = commands_list.len();
 
         // Before running the command, disable raw mode and clear input line
         disable_raw_mode()?;
@@ -186,6 +192,9 @@ fn get_home_dir() -> String {
 /// # Errors
 /// This function will panic if there is an error writing to the file.
 fn write_to_history(input: String, history_file: &mut File) -> Result<()> {
+    if input.trim().is_empty() {
+        return Ok(());
+    }
     history_file.write_all(input.as_bytes())?;
     history_file.write_all(b"\n")?;
     Ok(())
@@ -196,11 +205,22 @@ fn write_to_history(input: String, history_file: &mut File) -> Result<()> {
 /// # Returns
 /// A string containing the last line in the history file. If the file is empty,
 /// an empty string is returned.
-fn get_prev_command() -> Result<String> {
-    let file = File::open(format!("{}/.mysh_history", get_home_dir()))?;
+fn get_prev_command(command_list: &mut Vec<String>, last_index: &mut usize) -> String {
+    let current_index = *last_index;
+    if current_index == 0 {
+        String::new()
+    } else {
+        *last_index -= 1;
+        command_list[current_index - 1].clone()
+    }
+}
+
+fn read_history(file : &File) -> Vec<String> {
+    let mut result = Vec::new();
     let reader = BufReader::new(file);
-    let lines: Vec<String> = reader
-        .lines()
-        .collect::<std::result::Result<Vec<String>, std::io::Error>>()?;
-    Ok(lines.last().cloned().unwrap_or_default())
+
+    for line in reader.lines() {
+        result.push(line.unwrap());
+    }
+    result
 }
