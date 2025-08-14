@@ -26,7 +26,8 @@ use helpers::{
 mod command_handler;
 use command_handler::execute_command;
 
-
+mod customization_handler;
+use customization_handler::handle_customize;
 
 
 fn main() -> Result<()> {

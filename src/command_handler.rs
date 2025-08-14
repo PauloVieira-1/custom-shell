@@ -1,5 +1,6 @@
 use crate::input_validator::Validator;
 use crate::helpers::{get_home_dir, initialize_history_file};
+use crate::customization_handler::handle_customize;
 
 use std::env;
 use std::path::Path;
@@ -9,7 +10,7 @@ use std::process::{Command as ProcCommand, Stdio};
 use colored::Colorize;
 use std::fs::OpenOptions;
 
-enum Command {
+pub enum Command {
     CD,
     LS,
     MKDIR,
@@ -20,7 +21,8 @@ enum Command {
     PWD,
     HELP,
     DIRCONTENT,
-    CLEAR
+    CLEAR,
+    CUSTOMIZE
 }
 
 /// Handles various commands and executes corresponding actions.
@@ -48,6 +50,7 @@ pub fn execute_command(command: &str, mut args: std::str::SplitWhitespace) -> Re
         Command::HELP => { print_help(); Ok(()) },
         Command::DIRCONTENT => run(handle_dircontent),
         Command::CLEAR => { let _ = clear_history(); Ok(()) },
+        Command::CUSTOMIZE => run(handle_customize),
         Command::UNKNOWN => Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Command not found")),
     }
 
@@ -68,6 +71,7 @@ fn get_command_enum(command: &str) -> Command {
         "help" => Command::HELP,
         "dircontent" => Command::DIRCONTENT,
         "clear" => Command::CLEAR,
+        "customize" => Command::CUSTOMIZE,
         _ => Command::UNKNOWN,
     }
 }
@@ -395,3 +399,4 @@ fn clear_history() -> Result<(), std::io::Error> {
 
     Ok(())
 }
+

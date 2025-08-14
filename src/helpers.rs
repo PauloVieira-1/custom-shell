@@ -1,3 +1,5 @@
+use crate::customization_handler::{get_customization_options, CustomizationOptions};
+
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Result, Write, stdout};
 use std::path::Path;
@@ -34,6 +36,7 @@ pub fn initialize_history_file() -> File {
         .append(true) // so new history lines are added, not overwrite
         .open(&history_path)
         .unwrap()
+
 }
 
 
@@ -48,11 +51,20 @@ pub fn initialize_config_file() -> File {
         File::create(&config_path).unwrap();
     }
 
-    OpenOptions::new()
+    let mut file = OpenOptions::new()
         .read(true)
         .write(true)
         .open(&config_path)
-        .unwrap()
+        .unwrap();
+
+    let configs_vector: Vec<CustomizationOptions> = get_customization_options();
+
+    for config in configs_vector {
+        file.write_all(config.as_bytes()).unwrap();
+        file.write_all(b"\n").unwrap();
+    }
+    
+    file
     
 }
 
