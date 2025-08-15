@@ -21,13 +21,14 @@ use helpers::{
     write_to_history,
     clear_current_line,
     print_prompt,
+    read_config,
 };
 
 mod command_handler;
 use command_handler::execute_command;
 
 mod customization_handler;
-use customization_handler::handle_customize;
+use customization_handler::{handle_customize, print_message};
 
 
 fn main() -> Result<()> {
@@ -38,6 +39,7 @@ fn main() -> Result<()> {
     let mut commands_list = read_history(&history_file);
     let mut index = commands_list.len();
     let mut config_file = initialize_config_file();
+    let mut current_config = read_config(&mut config_file).unwrap();
 
     // create input buffer
     let mut input = String::new();
@@ -118,7 +120,7 @@ fn main() -> Result<()> {
         };
         let args = parts;
 
-        if let Err(e) = execute_command(command, args.clone()) {
+        if let Err(e) = execute_command(command, args.clone(), current_config.clone()) {
             println!("{}", e);
         }
 
@@ -135,14 +137,13 @@ fn main() -> Result<()> {
 //          Feature Plan
 // ===============================
 
+// Prompt Customization
+// ------------------------------
+// - Allow users to change prompt text and color (e.g., show username@hostname:cwd$).
 
 // Tab Completion
 // ------------------------------
 // - Auto-complete command names and file paths when pressing Tab.
-
-// Prompt Customization
-// ------------------------------
-// - Allow users to change prompt text and color (e.g., show username@hostname:cwd$).
 
 // Environment Variable Support
 // ------------------------------

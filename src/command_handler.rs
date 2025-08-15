@@ -1,13 +1,14 @@
 use crate::input_validator::Validator;
 use crate::helpers::{get_home_dir, initialize_history_file};
-use crate::customization_handler::handle_customize;
+use crate::customization_handler::{handle_customize, print_message, Configuration, CustomizationOptions};
+
 
 use std::env;
 use std::path::Path;
 use std::io::{self, Error, ErrorKind, Write, stdout};
 use std::fs::File;
 use std::process::{Command as ProcCommand, Stdio}; 
-use colored::Colorize;
+use colored::{Colorize, Color as ColoredColor};
 use std::fs::OpenOptions;
 
 pub enum Command {
@@ -26,19 +27,19 @@ pub enum Command {
 }
 
 /// Handles various commands and executes corresponding actions.
-pub fn execute_command(command: &str, mut args: std::str::SplitWhitespace) -> Result<(), io::Error> {
+pub fn execute_command(command: &str, mut args: std::str::SplitWhitespace, mut current_config: Vec<Configuration>) -> Result<(), io::Error> {
 
     // Helper to wrap functions that return () into Result<(), Error>
     let mut args = args;
-    let mut run = |f: fn(&mut std::str::SplitWhitespace) -> Result<(), Error>| -> Result<(), Error> {
-    f(&mut args)
+    let mut run = |f: fn(&mut std::str::SplitWhitespace, &mut Vec<Configuration>) -> Result<(), Error>| -> Result<(), Error> {
+    f(&mut args, &mut current_config)
     }; // this function is a closure that captures the args variable and passes it to the function
 
     let command = get_command_enum(command);
 
     match command {
         Command::CD => run(handle_current_dir),
-        Command::LS => {run(list_dir)},
+        Command::LS => {run(list_dir); Ok(())},
         Command::MKDIR => run(make_dir),
         Command::PLUSPLUS => run(make_file),
         Command::MINUSMINUS => run(remove_file),
@@ -51,10 +52,14 @@ pub fn execute_command(command: &str, mut args: std::str::SplitWhitespace) -> Re
         Command::DIRCONTENT => run(handle_dircontent),
         Command::CLEAR => { let _ = clear_history(); Ok(()) },
         Command::CUSTOMIZE => run(handle_customize),
-        Command::UNKNOWN => Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Command not found")),
-    }
+        Command::UNKNOWN => {
+            let unknown_command = args;
+            print_message("Unknown command",ColoredColor::Red);
+            Ok(())
+        },
 
 
+}
 }
 
 
@@ -84,7 +89,7 @@ fn get_command_enum(command: &str) -> Command {
     /// # Errors
     ///
     /// If the specified directory does not exist, an error is returned.
-fn handle_current_dir(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
+fn handle_current_dir(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), Error> { // _ used to avoid unused variable warning
     let new_dir = args.clone().next().unwrap_or("/");
     let root = Path::new(new_dir);
     env::set_current_dir(&root).map_err(|e| {
@@ -106,7 +111,7 @@ fn handle_current_dir(args: &mut std::str::SplitWhitespace) -> Result<(), Error>
     ///
     /// If the command is not found or there is another error executing the
     /// command, an error is returned.
-fn list_dir(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
+fn list_dir(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), Error> {
     // Normal & pipe handling
     if peek_next(args) == Some("|".to_string()) {
         args.next(); // consume "|"
@@ -145,7 +150,7 @@ fn list_dir(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
     ///
     /// If the directory already exists, or if there is an error creating the
     /// directory, an error is returned.
-fn make_dir(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
+fn make_dir(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), Error> {
     let dir_name = match args.next() {
                 Some(name) => name,
                 None => {
@@ -169,11 +174,11 @@ fn make_dir(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
     ///
     /// If the file already exists or if there is an error creating the file,
     /// an error is returned.
-fn make_file(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
+fn make_file(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), Error> {
     let file_name = match args.next() {
                 Some(name) => name,
                 None => {
-                    println!("{}", "Error: Missing file name argument for ++ command".red());
+                    print_message("Error: Missing file name argument for ++ command", ColoredColor::Red);
                     return Ok(());  
                 }
             };
@@ -209,7 +214,7 @@ fn make_file(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
     ///
     /// If the file does not exist or if there is an error deleting the file,
     /// an error is returned.
-fn remove_file(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
+fn remove_file(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), Error> {
     let file_name = match args.next() {
                 Some(name) => name,
                 None => {
@@ -249,7 +254,7 @@ fn remove_file(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
     ///
     /// If there is an error reading the directory or its entries, an error is
     /// returned.
-fn handle_dircontent(args: &mut std::str::SplitWhitespace) -> Result<(), Error> {
+fn handle_dircontent(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), Error> {
     let new_dir = args.clone().next().unwrap_or("/");
     let root = Path::new(new_dir);
     get_dir_content(&root.display().to_string());
@@ -394,9 +399,27 @@ fn clear_history() -> Result<(), std::io::Error> {
     let history_path = format!("{}/.mysh_history", get_home_dir());
     std::fs::remove_file(history_path).unwrap();
     
-    let mut history_file = initialize_history_file();
+    let history_file = initialize_history_file();
     history_file.set_len(0);
 
     Ok(())
 }
 
+/// Returns the value of the given configuration key from the given configuration vector.
+///
+/// # Arguments
+///
+/// * `key`: The configuration key to search for.
+/// * `configs_vector`: The vector of `Configuration` structs to search through.
+///
+/// # Returns
+///
+/// An `Option<String>` containing the value of the given configuration key, or `None` if the key is not found.
+fn get_config_value(key: CustomizationOptions, configs_vector: Vec<Configuration>) -> Option<String> {
+    for config in configs_vector {
+        if config.option == key {
+            return config.value;
+        }
+    }
+    None
+}

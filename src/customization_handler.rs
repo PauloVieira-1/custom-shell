@@ -1,4 +1,27 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use serde::{Serialize, Deserialize};
+use colored::{Colorize, Color as ColoredColor};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Color {
+    Red,
+    Green,
+    Blue,
+    Yellow,
+    Magenta,
+    Cyan,
+    White,
+    Black,
+    Gray,
+    LightRed,
+    LightGreen,
+    LightBlue,
+    LightYellow,
+    LightMagenta,
+    LightCyan,
+    LightGray,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CustomizationOptions {
     TextColor,
     BackgroundColor,
@@ -6,6 +29,12 @@ pub enum CustomizationOptions {
     ErrorColor,
     PromptColor,
     PromptText,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Configuration {
+    pub option: CustomizationOptions,
+    pub value: Option<String>,
 }
 
 impl CustomizationOptions {
@@ -41,7 +70,7 @@ impl CustomizationOptions {
 }
 
 /// Handles the `customize` command safely.
-pub fn handle_customize(args: &mut std::str::SplitWhitespace) -> Result<(), std::io::Error> {
+pub fn handle_customize(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), std::io::Error> {
     // Get the first argument after the command
     let second_arg = match args.next() {
         Some(arg) => arg,
@@ -52,6 +81,11 @@ pub fn handle_customize(args: &mut std::str::SplitWhitespace) -> Result<(), std:
     };
 
     let third_arg = args.next();
+
+    if second_arg.to_string() == "help" {
+        print_customization_options();
+        return Ok(());
+    }
 
     match CustomizationOptions::from_str(second_arg) {
         Some(CustomizationOptions::TextColor) => {
@@ -82,13 +116,56 @@ pub fn handle_customize(args: &mut std::str::SplitWhitespace) -> Result<(), std:
 
 
 /// Returns a vector containing all possible `CustomizationOptions`.
-pub fn get_customization_options() -> Vec<CustomizationOptions> {
-    vec![
-        CustomizationOptions::TextColor,
-        CustomizationOptions::BackgroundColor,
-        CustomizationOptions::FontSize,
-        CustomizationOptions::ErrorColor,
-        CustomizationOptions::PromptColor,
-        CustomizationOptions::PromptText,
-    ]
+pub fn get_customization_options() -> Vec<Configuration> {
+    // vec![
+    //     CustomizationOptions::TextColor,
+    //     CustomizationOptions::BackgroundColor,
+    //     CustomizationOptions::FontSize,
+    //     CustomizationOptions::ErrorColor,
+    //     CustomizationOptions::PromptColor,
+    //     CustomizationOptions::PromptText,
+    // ]
+
+    let configs_vector = vec![
+        Configuration { option: CustomizationOptions::TextColor, value: None },
+        Configuration { option: CustomizationOptions::BackgroundColor, value: None },
+        Configuration { option: CustomizationOptions::FontSize, value: None },
+        Configuration { option: CustomizationOptions::ErrorColor, value: None },
+        Configuration { option: CustomizationOptions::PromptColor, value: None },
+        Configuration { option: CustomizationOptions::PromptText, value: None },
+    ];
+    configs_vector
 }
+
+
+pub fn print_customization_options() {
+    println!("\n+------------------------------------+");
+    println!("| Available Customization Options:   |");
+    println!("+------------------------------------+");
+
+    let configs_vector = get_customization_options();
+
+    for config in configs_vector {
+        let option = config.option;
+        let value = config.value;
+
+        println!("| {:<20} | {:<10}  |", option.as_str(), value.unwrap_or("default".to_string()));
+    }
+
+    println!("+------------------------------------+\n");
+}
+
+
+pub fn print_message(message: &str, color: ColoredColor) {
+    match color {
+        ColoredColor::Red => println!("{}", message.red()),
+        ColoredColor::Green => println!("{}", message.green()),
+        ColoredColor::Yellow => println!("{}", message.yellow()),
+        ColoredColor::Blue => println!("{}", message.blue()),
+        ColoredColor::Magenta => println!("{}", message.magenta()),
+        ColoredColor::Cyan => println!("{}", message.cyan()),
+        ColoredColor::White => println!("{}", message.white()),
+        _ => println!("{}", message),
+    }
+}
+

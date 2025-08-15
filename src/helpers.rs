@@ -1,4 +1,4 @@
-use crate::customization_handler::{get_customization_options, CustomizationOptions};
+use crate::customization_handler::{get_customization_options, CustomizationOptions, Configuration};
 
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Result, Write, stdout};
@@ -8,6 +8,7 @@ use crossterm::{
     execute,
     terminal::{Clear, ClearType},
 };
+use serde::{Serialize, Deserialize};
 
 
 /// Returns the path to the user's home directory.
@@ -27,7 +28,7 @@ pub fn get_home_dir() -> String {
 
 pub fn initialize_history_file() -> File {
     let history_path = format!("{}/.mysh_history", get_home_dir());
-    if !Path::new(&history_path).exists() {
+    if !check_path_exists(&history_path) {
         File::create(&history_path).unwrap();
     }
 
@@ -47,25 +48,17 @@ pub fn initialize_history_file() -> File {
 /// to the file.
 pub fn initialize_config_file() -> File {
     let config_path = format!("{}/.mysh_config", get_home_dir());
-    if !Path::new(&config_path).exists() {
-        File::create(&config_path).unwrap();
+    if !check_path_exists(&config_path) {
+        let configs_vector: Vec<Configuration> = get_customization_options();
+        let serialised = serde_json::to_string_pretty(&configs_vector).unwrap();
+        File::create(&config_path).unwrap().write_all(serialised.as_bytes()).unwrap();
+        return File::open(&config_path).unwrap();
     }
 
-    let mut file = OpenOptions::new()
+    OpenOptions::new()
         .read(true)
         .write(true)
-        .open(&config_path)
-        .unwrap();
-
-    let configs_vector: Vec<CustomizationOptions> = get_customization_options();
-
-    for config in configs_vector {
-        file.write_all(config.as_bytes()).unwrap();
-        file.write_all(b"\n").unwrap();
-    }
-    
-    file
-    
+        .open(&config_path).unwrap()
 }
 
 /// Writes a line of input to the history file.
@@ -84,6 +77,70 @@ pub fn write_to_history(input: String, history_file: &mut File) -> Result<()> {
     history_file.write_all(input.as_bytes())?;
     history_file.write_all(b"\n")?;
     Ok(())
+}
+
+
+/// Writes a line of input to the config file.
+///
+/// # Arguments
+///
+/// * `input`: The line of input to be written to the config file.
+/// * `config_file`: The file to write the input to.
+///
+/// # Errors
+/// This function will panic if there is an error writing to the file.
+pub fn write_to_config(input: String, config_file: &mut File) -> Result<()> {
+    config_file.write_all(input.as_bytes())?;
+    config_file.write_all(b"\n")?;
+    Ok(())
+}
+
+/// Reads the contents of the given config file into a vector of `Configuration` structs.
+///
+/// # Arguments
+///
+/// * `config_file`: A mutable reference to the file to read from.
+///
+/// # Returns
+///
+/// A `Result` containing a vector of `Configuration` structs, or an error if there is an I/O or parse error.
+pub fn read_config(config_file: &mut File) -> Result<Vec<Configuration>> {
+    let reader = BufReader::new(config_file);
+    let configs: Vec<Configuration> = serde_json::from_reader(reader)?;
+    Ok(configs)
+}
+
+/// Returns a new `Configuration` vector with the given `option` added and all other
+/// `Configuration` structs copied from the original `Configuration` vector.
+///
+/// # Arguments
+///
+/// * `option`: The customization option to add to the new `Configuration` vector.
+/// * `value`: The value associated with the new customization option.
+///
+/// # Returns
+/// A new `Configuration` vector with the given `option` added and all other
+/// `Configuration` structs copied from the original `Configuration` vector.
+pub fn add_option_to_config_vector(
+    option: CustomizationOptions,
+    value: String,
+) -> Vec<Configuration> {
+    let original_configs = get_customization_options();
+
+    let mut updated_configs = Vec::new();
+
+    for config in original_configs {
+        updated_configs.push(if config.option == option {
+            Configuration {
+                option: config.option,
+                value: Some(value.clone()),
+            }
+        } else {
+            config
+        });
+    }
+
+    updated_configs
 }
 
 /// Reads the last line from the shell's history file.
@@ -178,4 +235,20 @@ pub fn print_prompt() -> Result<()> {
     Ok(())
 }
 
+/// Checks if a given path exists.
+///
+/// This function takes a `path` as a string and returns a boolean value indicating
+/// whether the path exists or not. It uses the `std::path::Path` struct to check if
+/// the given path exists on the file system.
+///
+/// # Arguments
+///
+/// * `path` - A string slice that holds the path to be checked.
+///
+/// # Returns
+///
+/// Returns `true` if the path exists, and `false` otherwise.
+pub fn check_path_exists(path: &str) -> bool {
+    Path::new(path).exists()
+}
 
