@@ -260,14 +260,46 @@ fn remove_file(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configura
             Ok(())
 }
 
-    /// Lists the contents of the directory specified by the given path.
-    ///
-    /// If no argument is given, the current directory is used.
-    ///
-    /// # Errors
-    ///
-    /// If there is an error reading the directory or its entries, an error is
-    /// returned.
+/// Opens the file at the given file path using the appropriate command for the current platform.
+///
+/// # Arguments
+///
+/// * `file_path`: The path to the file to open.
+/// * `config`: The vector of `Configuration` structs containing the user's customization options.
+///
+/// This function spawns a new process to open the file using the `open` command on macOS,
+/// and the `start` command on Windows. If the file path is not valid or the command fails
+/// to execute, an error message is printed to the console.
+pub fn open_file(file_path: &str, config: &mut Vec<Configuration>) {
+    
+    if Path::new(file_path).exists() == false {
+        print_message(&format!("File not found: {}", file_path), get_color(CustomizationOptions::ErrorColor, config));
+        return;
+    }
+
+    // open file
+    let mut command = ProcCommand::new("open");
+    command.arg(file_path);
+
+    match command.spawn() {
+        Ok(_) => {}
+        Err(e) => {
+            print_message(&format!("Failed to open file: {}", e), get_color(CustomizationOptions::ErrorColor, config));
+        }
+    }
+    
+}
+
+
+
+/// Lists the contents of the directory specified by the given path.
+///
+/// If no argument is given, the current directory is used.
+///
+/// # Errors
+///
+/// If there is an error reading the directory or its entries, an error is
+/// returned.
 fn handle_dircontent(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), Error> {
     let new_dir = args.clone().next().unwrap_or("/");
     let root = Path::new(new_dir);
@@ -460,34 +492,4 @@ pub fn get_config_value(key: CustomizationOptions, configs_vector: &mut Vec<Conf
 pub fn get_color(option: CustomizationOptions, configs_vector: &mut Vec<Configuration>) -> Color {
     let value = get_config_value(option, configs_vector).and_then(|color_str| Color::from_str(&color_str));
     value.unwrap_or(Color::Red)
-}
-
-/// Opens the file at the given file path using the appropriate command for the current platform.
-///
-/// # Arguments
-///
-/// * `file_path`: The path to the file to open.
-/// * `config`: The vector of `Configuration` structs containing the user's customization options.
-///
-/// This function spawns a new process to open the file using the `open` command on macOS,
-/// and the `start` command on Windows. If the file path is not valid or the command fails
-/// to execute, an error message is printed to the console.
-pub fn open_file(file_path: &str, config: &mut Vec<Configuration>) {
-    
-    if Path::new(file_path).exists() == false {
-        print_message(&format!("File not found: {}", file_path), get_color(CustomizationOptions::ErrorColor, config));
-        return;
-    }
-
-    // open file
-    let mut command = ProcCommand::new("open");
-    command.arg(file_path);
-
-    match command.spawn() {
-        Ok(_) => {}
-        Err(e) => {
-            print_message(&format!("Failed to open file: {}", e), get_color(CustomizationOptions::ErrorColor, config));
-        }
-    }
-    
 }
