@@ -1,4 +1,4 @@
-use crate::customization_handler::{get_customization_options, CustomizationOptions, Configuration};
+use crate::customization_handler::{get_customization_options, CustomizationOptions, Configuration, print_message, Color};
 
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Result, Write, stdout};
@@ -221,15 +221,6 @@ pub fn clear_current_line() -> Result<()> {
     Ok(())
 }
 
-/// Prints the shell's prompt to the standard output.
-///
-/// # Errors
-/// Returns an error if there is a problem printing to the standard output.
-pub fn print_prompt() -> Result<()> {
-    print!("[<Prompt>] ");
-    stdout().flush()?;
-    Ok(())
-}
 
 /// Checks if a given path exists.
 ///

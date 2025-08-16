@@ -433,7 +433,7 @@ fn clear_history() -> Result<(), std::io::Error> {
 /// # Returns
 ///
 /// An `Option<String>` containing the value of the given configuration key, or `None` if the key is not found.
-fn get_config_value(key: CustomizationOptions, configs_vector: &mut Vec<Configuration>) -> Option<String> {
+pub fn get_config_value(key: CustomizationOptions, configs_vector: &mut Vec<Configuration>) -> Option<String> {
     for config in configs_vector {
         if config.option == key {
             return config.value.clone();

@@ -20,15 +20,14 @@ use helpers::{
     get_next_command,
     write_to_history,
     clear_current_line,
-    print_prompt,
     read_config,
 };
 
 mod command_handler;
-use command_handler::{execute_command, get_color};
+use command_handler::{execute_command, get_color, get_config_value};
 
 mod customization_handler;
-use customization_handler::{handle_customize, print_message, CustomizationOptions};
+use customization_handler::{handle_customize, print_message, CustomizationOptions, print_prompt};
 
 
 fn main() -> Result<()> {
@@ -50,7 +49,9 @@ fn main() -> Result<()> {
 
     loop {
         input.clear();
-        print_prompt()?;
+        let prompt_color = get_color(CustomizationOptions::PromptColor, &mut current_config);
+        let prompt_text = get_config_value(CustomizationOptions::PromptText, &mut current_config).unwrap_or("PROMPT".to_string());
+        print_prompt(&prompt_text, prompt_color)?;
 
         loop {
             if let Event::Key(key) = read()? {
