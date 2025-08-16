@@ -80,18 +80,14 @@ pub fn write_to_history(input: String, history_file: &mut File) -> Result<()> {
 }
 
 
-/// Writes a line of input to the config file.
-///
-/// # Arguments
-///
-/// * `input`: The line of input to be written to the config file.
-/// * `config_file`: The file to write the input to.
-///
-/// # Errors
-/// This function will panic if there is an error writing to the file.
-pub fn write_to_config(input: String, config_file: &mut File) -> Result<()> {
-    config_file.write_all(input.as_bytes())?;
-    config_file.write_all(b"\n")?;
+pub fn update_config(configs: &Vec<Configuration>, path: &str) -> Result<()> {
+    // Serialize the whole vector as JSON
+    let serialised = serde_json::to_string_pretty(configs)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+
+    // Overwrite the file with the new JSON
+    let mut file = File::create(path)?;  
+    file.write_all(serialised.as_bytes())?;
     Ok(())
 }
 

@@ -120,7 +120,7 @@ fn main() -> Result<()> {
         };
         let args = parts;
 
-        if let Err(e) = execute_command(command, args.clone(), current_config.clone()) {
+        if let Err(e) = execute_command(command, args.clone(), &mut current_config) {
             println!("{}", e);
         }
 

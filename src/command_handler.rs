@@ -1,6 +1,6 @@
 use crate::input_validator::Validator;
 use crate::helpers::{get_home_dir, initialize_history_file};
-use crate::customization_handler::{handle_customize, print_message, Configuration, CustomizationOptions};
+use crate::customization_handler::{handle_customize, print_message, Configuration, CustomizationOptions, Color};
 
 
 use std::env;
@@ -27,12 +27,12 @@ pub enum Command {
 }
 
 /// Handles various commands and executes corresponding actions.
-pub fn execute_command(command: &str, mut args: std::str::SplitWhitespace, mut current_config: Vec<Configuration>) -> Result<(), io::Error> {
+pub fn execute_command(command: &str, mut args: std::str::SplitWhitespace, current_config: &mut Vec<Configuration>) -> Result<(), io::Error> {
 
     // Helper to wrap functions that return () into Result<(), Error>
     let mut args = args;
     let mut run = |f: fn(&mut std::str::SplitWhitespace, &mut Vec<Configuration>) -> Result<(), Error>| -> Result<(), Error> {
-    f(&mut args, &mut current_config)
+    f(&mut args, current_config)
     }; // this function is a closure that captures the args variable and passes it to the function
 
     let command = get_command_enum(command);
@@ -45,7 +45,9 @@ pub fn execute_command(command: &str, mut args: std::str::SplitWhitespace, mut c
         Command::MINUSMINUS => run(remove_file),
         Command::KILL => std::process::exit(0),
         Command::PWD => {
-            println!("{}", std::env::current_dir()?.display());
+            let dir = std::env::current_dir()?;
+            let color = get_color(CustomizationOptions::TextColor, current_config);
+            print_message(&format!("{}", dir.display()), color);
             Ok(())
         }
         Command::HELP => { print_help(); Ok(()) },
@@ -54,7 +56,8 @@ pub fn execute_command(command: &str, mut args: std::str::SplitWhitespace, mut c
         Command::CUSTOMIZE => run(handle_customize),
         Command::UNKNOWN => {
             let unknown_command = args;
-            print_message("Unknown command",ColoredColor::Red);
+            let color = get_color(CustomizationOptions::ErrorColor, current_config);
+            print_message("Unknown command", color);
             Ok(())
         },
 
@@ -89,13 +92,16 @@ fn get_command_enum(command: &str) -> Command {
     /// # Errors
     ///
     /// If the specified directory does not exist, an error is returned.
-fn handle_current_dir(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), Error> { // _ used to avoid unused variable warning
+fn handle_current_dir(args: &mut std::str::SplitWhitespace, current_config: &mut Vec<Configuration>) -> Result<(), io::Error> {
     let new_dir = args.clone().next().unwrap_or("/");
     let root = Path::new(new_dir);
     env::set_current_dir(&root).map_err(|e| {
-                Error::new(e.kind(), format!("cd: {}: {}", new_dir, e))
-            })
-    
+        let color = get_config_value(CustomizationOptions::ErrorColor, current_config)
+                    .and_then(|color_str| Color::from_str(&color_str))
+                    .unwrap_or(Color::Red);
+        print_message(&format!("Failed to change directory: {}", e), color);
+        e
+    })
 }
 
     /// Execute ls command with optional piping to another command.
@@ -136,7 +142,7 @@ fn list_dir(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuratio
 
     // Normal ls without piping
     let path = args.next().unwrap_or(".");
-    print_ls(path);
+    print_ls(path, _config);
     Ok(())
 }
 
@@ -178,7 +184,8 @@ fn make_file(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configurati
     let file_name = match args.next() {
                 Some(name) => name,
                 None => {
-                    print_message("Error: Missing file name argument for ++ command", ColoredColor::Red);
+                    let color = get_color(CustomizationOptions::ErrorColor, _config);
+                    print_message("Error: Missing file name argument for ++ command", color);
                     return Ok(());  
                 }
             };
@@ -276,16 +283,16 @@ fn peek_next(args: &mut std::str::SplitWhitespace) -> Option<String> {
 /// This function reads the directory entries and prints each entry's file name
 /// to the standard output. It assumes the directory exists and panics if there
 /// is an error reading the directory or its entries.
-fn print_ls(path: &str) {
+fn print_ls(path: &str, _config: &mut Vec<Configuration>) {
     println!();
     let root = std::path::Path::new(path);
     match root.read_dir() {
         Ok(entries) => {
             for entry_res in entries {
                 if let Ok(entry) = entry_res {
-                    // Print file names without extra spaces, flush after each
-                    print!("\t> {}\n", entry.file_name().to_string_lossy().trim_start());
-                    stdout().flush().unwrap();
+                    let color = get_color(CustomizationOptions::TextColor, _config);
+                    let file_name = format!("\t> {}", entry.file_name().to_string_lossy().trim_start());
+                    print_message(&file_name, color);
                 }
             }
         },
@@ -415,11 +422,28 @@ fn clear_history() -> Result<(), std::io::Error> {
 /// # Returns
 ///
 /// An `Option<String>` containing the value of the given configuration key, or `None` if the key is not found.
-fn get_config_value(key: CustomizationOptions, configs_vector: Vec<Configuration>) -> Option<String> {
+fn get_config_value(key: CustomizationOptions, configs_vector: &mut Vec<Configuration>) -> Option<String> {
     for config in configs_vector {
         if config.option == key {
-            return config.value;
+            return config.value.clone();
         }
     }
     None
+}
+
+/// Returns the color value associated with the given configuration key from the given configuration vector.
+///
+/// If the configuration key is not found or the value is not a valid color, returns `Color::Red`.
+///
+/// # Arguments
+///
+/// * `option`: The configuration key to search for.
+/// * `configs_vector`: The vector of `Configuration` structs to search through.
+///
+/// # Returns
+///
+/// The color value associated with the given configuration key, or `Color::Red` if the key is not found or the value is not a valid color.
+pub fn get_color(option: CustomizationOptions, configs_vector: &mut Vec<Configuration>) -> Color {
+    let value = get_config_value(option, configs_vector).and_then(|color_str| Color::from_str(&color_str));
+    value.unwrap_or(Color::Red)
 }

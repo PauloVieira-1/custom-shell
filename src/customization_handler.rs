@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use colored::{Colorize, Color as ColoredColor};
+use crate::helpers::{update_config, get_home_dir};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Color {
@@ -11,14 +12,22 @@ pub enum Color {
     Cyan,
     White,
     Black,
-    Gray,
-    LightRed,
-    LightGreen,
-    LightBlue,
-    LightYellow,
-    LightMagenta,
-    LightCyan,
-    LightGray,
+}
+
+impl Color {
+    pub fn from_str(s: &str) -> Option<Self> { // self because Color is a struct
+        match s {
+            "Red" => Some(Color::Red),
+            "Green" => Some(Color::Green),
+            "Blue" => Some(Color::Blue),
+            "Yellow" => Some(Color::Yellow),
+            "Magenta" => Some(Color::Magenta),
+            "Cyan" => Some(Color::Cyan),
+            "White" => Some(Color::White),
+            "Black" => Some(Color::Black),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,7 +79,7 @@ impl CustomizationOptions {
 }
 
 /// Handles the `customize` command safely.
-pub fn handle_customize(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), std::io::Error> {
+pub fn handle_customize(args: &mut std::str::SplitWhitespace, config: &mut Vec<Configuration>) -> Result<(), std::io::Error> {
     // Get the first argument after the command
     let second_arg = match args.next() {
         Some(arg) => arg,
@@ -90,6 +99,16 @@ pub fn handle_customize(args: &mut std::str::SplitWhitespace, _config: &mut Vec<
     match CustomizationOptions::from_str(second_arg) {
         Some(CustomizationOptions::TextColor) => {
             println!("Change Text Color to {:?}", third_arg.unwrap_or("default"));
+
+            for config in config.iter_mut() {
+                if config.option == CustomizationOptions::TextColor {
+                    config.value = Some(third_arg.unwrap_or("default").to_string());
+                }
+            }
+
+            let config_path = format!("{}/.mysh_config", get_home_dir());
+            update_config(config, &config_path)?;
+
         }
         Some(CustomizationOptions::BackgroundColor) => {
             println!("Change Background Color to {:?}", third_arg.unwrap_or("default"));
@@ -99,6 +118,15 @@ pub fn handle_customize(args: &mut std::str::SplitWhitespace, _config: &mut Vec<
         }
         Some(CustomizationOptions::ErrorColor) => {
             println!("Change Error Color to {:?}", third_arg.unwrap_or("default"));
+
+            for config in config.iter_mut() {
+                if config.option == CustomizationOptions::ErrorColor {
+                    config.value = Some(third_arg.unwrap_or("default").to_string());
+                }
+            }
+
+            let config_path = format!("{}/.mysh_config", get_home_dir());
+            update_config(config, &config_path)?;
         }
         Some(CustomizationOptions::PromptColor) => {
             println!("Change Prompt Color to {:?}", third_arg.unwrap_or("default"));
@@ -156,16 +184,20 @@ pub fn print_customization_options() {
 }
 
 
-pub fn print_message(message: &str, color: ColoredColor) {
+pub fn print_message(message: &str, color: Color) {
     match color {
-        ColoredColor::Red => println!("{}", message.red()),
-        ColoredColor::Green => println!("{}", message.green()),
-        ColoredColor::Yellow => println!("{}", message.yellow()),
-        ColoredColor::Blue => println!("{}", message.blue()),
-        ColoredColor::Magenta => println!("{}", message.magenta()),
-        ColoredColor::Cyan => println!("{}", message.cyan()),
-        ColoredColor::White => println!("{}", message.white()),
+        Color::Red => println!("{}", message.red()),
+        Color::Green => println!("{}", message.green()),
+        Color::Yellow => println!("{}", message.yellow()),
+        Color::Blue => println!("{}", message.blue()),
+        Color::Magenta => println!("{}", message.magenta()),
+        Color::Cyan => println!("{}", message.cyan()),
+        Color::White => println!("{}", message.white()),
         _ => println!("{}", message),
     }
+}
+
+pub fn change_config(config: &mut Configuration, value: &str) {
+    config.value = Some(value.to_string());
 }
 
