@@ -25,10 +25,10 @@ use helpers::{
 };
 
 mod command_handler;
-use command_handler::execute_command;
+use command_handler::{execute_command, get_color};
 
 mod customization_handler;
-use customization_handler::{handle_customize, print_message};
+use customization_handler::{handle_customize, print_message, CustomizationOptions};
 
 
 fn main() -> Result<()> {
@@ -43,6 +43,7 @@ fn main() -> Result<()> {
 
     // create input buffer
     let mut input = String::new();
+    let color = get_color(CustomizationOptions::TextColor, &mut current_config);
 
     // enable raw mode for capturing input key-by-key
     enable_raw_mode()?;
@@ -121,7 +122,8 @@ fn main() -> Result<()> {
         let args = parts;
 
         if let Err(e) = execute_command(command, args.clone(), &mut current_config) {
-            println!("{}", e);
+            print_message(&e.to_string(), color);
+            continue;
         }
 
         enable_raw_mode()?;

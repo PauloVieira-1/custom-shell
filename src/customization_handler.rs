@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 use colored::{Colorize, Color as ColoredColor};
 use crate::helpers::{update_config, get_home_dir};
+use crate::command_handler::{get_color};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Color {
@@ -26,6 +27,19 @@ impl Color {
             "White" => Some(Color::White),
             "Black" => Some(Color::Black),
             _ => None,
+        }
+    }
+
+    pub fn make_str(self) -> &'static str {
+        match self {
+            Color::Red => "Red",
+            Color::Green => "Green",
+            Color::Blue => "Blue",
+            Color::Yellow => "Yellow",
+            Color::Magenta => "Magenta",
+            Color::Cyan => "Cyan",
+            Color::White => "White",
+            Color::Black => "Black",
         }
     }
 }
@@ -98,16 +112,19 @@ pub fn handle_customize(args: &mut std::str::SplitWhitespace, config: &mut Vec<C
 
     match CustomizationOptions::from_str(second_arg) {
         Some(CustomizationOptions::TextColor) => {
-            println!("Change Text Color to {:?}", third_arg.unwrap_or("default"));
-
+            
             for config in config.iter_mut() {
                 if config.option == CustomizationOptions::TextColor {
                     config.value = Some(third_arg.unwrap_or("default").to_string());
                 }
             }
-
+            
             let config_path = format!("{}/.mysh_config", get_home_dir());
             update_config(config, &config_path)?;
+
+            let color = get_color(CustomizationOptions::TextColor, config);
+            let formated = format!("Changed Text Color to {}", color.make_str().bold());
+            print_message(&formated, color);
 
         }
         Some(CustomizationOptions::BackgroundColor) => {

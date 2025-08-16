@@ -157,16 +157,17 @@ fn list_dir(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuratio
     /// If the directory already exists, or if there is an error creating the
     /// directory, an error is returned.
 fn make_dir(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), Error> {
+    let color = get_color(CustomizationOptions::ErrorColor, _config);
     let dir_name = match args.next() {
                 Some(name) => name,
                 None => {
-                    println!("{}", "Error: Missing directory name for mkdir command".red());
+                    print_message("Error: Missing directory name argument for mkdir command", color);
                     return Ok(());  
                 }
             };
 
             if let Err(e) = std::fs::create_dir_all(dir_name) {
-                println!("Failed to create directory: {}", e);
+                print_message(&format!("Failed to create directory: {}", e), color);
             }
             Ok(())
 }
@@ -181,10 +182,11 @@ fn make_dir(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuratio
     /// If the file already exists or if there is an error creating the file,
     /// an error is returned.
 fn make_file(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), Error> {
+    let error_color = get_color(CustomizationOptions::ErrorColor, _config);
+    let color = get_color(CustomizationOptions::TextColor, _config);
     let file_name = match args.next() {
                 Some(name) => name,
                 None => {
-                    let color = get_color(CustomizationOptions::ErrorColor, _config);
                     print_message("Error: Missing file name argument for ++ command", color);
                     return Ok(());  
                 }
@@ -195,16 +197,16 @@ fn make_file(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configurati
             validator.add_rule(("file_does_not_exist", Box::new(|input: &str| !Path::new(input).exists())));
 
             if !validator.validate(file_name) {
-                println!("{}", format!("Invalid input: {}", file_name).red());
+                print_message(&format!("Invalid input: {}", file_name).red(), error_color);
                 return Ok(());  
             }
 
             File::create(file_name).map_err(|e| {
-                println!("Failed to create file: {}", e);
+                print_message(&format!("Failed to create file: {}", e), error_color);
                 std::io::Error::new(e.kind(), format!("Failed to create file: {}", e))
             })?;
 
-            println!("{}", format!("\nFile created successfully!\n").green());
+            print_message("\nFile created successfully!\n", color);
             Ok(())
 }
 
@@ -222,10 +224,12 @@ fn make_file(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configurati
     /// If the file does not exist or if there is an error deleting the file,
     /// an error is returned.
 fn remove_file(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), Error> {
+    let error_color = get_color(CustomizationOptions::ErrorColor, _config);
+    let color = get_color(CustomizationOptions::TextColor, _config);
     let file_name = match args.next() {
                 Some(name) => name,
                 None => {
-                    println!("{}", "Error: No file specified for -- command".red());
+                    print_message("Error: No file specified for -- command", error_color);
                     return Ok(());
                 }
             };
@@ -234,7 +238,7 @@ fn remove_file(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configura
             let full_path = dir.join(file_name);
 
             if !full_path.exists() {
-                println!("{}", format!("File not found: {}", file_name).red());
+                print_message(&format!("File not found: {}", file_name), error_color);
                 return Ok(());
             }
 
@@ -245,9 +249,9 @@ fn remove_file(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configura
 
             if input.trim() == "yes" {
                 std::fs::remove_file(&full_path)?;
-                println!("{}", format!("\nFile deleted: {}\n", file_name).green());
+                print_message(&format!("Deleted file: {}", file_name), color);
             } else {
-                println!("Deletion canceled.");
+                print_message("Deletion canceled.", color);
             }
 
             Ok(())
@@ -264,7 +268,7 @@ fn remove_file(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configura
 fn handle_dircontent(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuration>) -> Result<(), Error> {
     let new_dir = args.clone().next().unwrap_or("/");
     let root = Path::new(new_dir);
-    get_dir_content(&root.display().to_string());
+    get_dir_content(&root.display().to_string(), _config);
     Ok(())
 }
 
@@ -284,6 +288,7 @@ fn peek_next(args: &mut std::str::SplitWhitespace) -> Option<String> {
 /// to the standard output. It assumes the directory exists and panics if there
 /// is an error reading the directory or its entries.
 fn print_ls(path: &str, _config: &mut Vec<Configuration>) {
+    let error_color = get_color(CustomizationOptions::ErrorColor, _config);
     println!();
     let root = std::path::Path::new(path);
     match root.read_dir() {
@@ -296,7 +301,7 @@ fn print_ls(path: &str, _config: &mut Vec<Configuration>) {
                 }
             }
         },
-        Err(e) => eprintln!("Failed to read directory {}: {}", path, e),
+        Err(e) => print_message(&format!("Failed to read directory: {}", e), error_color),
     }
     println!();
 }
@@ -362,30 +367,36 @@ fn print_help() {
 /// # Arguments
 ///
 /// * `path`: The path to the directory to be read.
-fn get_dir_content(path: &str) {
+fn get_dir_content(path: &str, _config: &mut Vec<Configuration>) {
+    let error_color = get_color(CustomizationOptions::ErrorColor, _config);
+    let color = get_color(CustomizationOptions::TextColor, _config);
     // Read the contents of the specified directory
     let entries = match std::fs::read_dir(path) {
         Ok(entries) => entries,
         Err(e) => {
-            eprintln!("Failed to read directory {}: {}", path, e);
+            print_message(&format!("Failed to read directory: {}", e), error_color);
             return;
         }
     };
 
     // Print the directory header
-    println!("{}", "\n--------------------\n".blue());
-    println!("{}", format!("Contents of {}:", path).bold());
+    println!(
+        "{}",
+        format!("\nContents of {}:\n", path).bold()
+    );
     // Print the contents of the directory
     for entry in entries {
         match entry {
-            Ok(entry) => println!("\t> {}", entry.path().display().to_string().replace("src/", "")),
+            Ok(entry) => {
+                let formated = format!("\t> {}", entry.path().display().to_string().replace("src/", ""));
+                print_message(&formated, color);
+            }
             Err(e) => {
-                eprintln!("Failed to read entry in {}: {}", path, e);
+                print_message(&format!("Failed to read entry: {}", e), error_color);
             }
         }
     }
-    // Print the directory footer
-    println!("{}", "\n--------------------\n".blue());
+    println!();
 }
 
 /// Clears the contents of the given file.
