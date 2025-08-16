@@ -23,7 +23,8 @@ pub enum Command {
     HELP,
     DIRCONTENT,
     CLEAR,
-    CUSTOMIZE
+    CUSTOMIZE,
+    OPEN
 }
 
 /// Handles various commands and executes corresponding actions.
@@ -54,6 +55,7 @@ pub fn execute_command(command: &str, mut args: std::str::SplitWhitespace, curre
         Command::DIRCONTENT => run(handle_dircontent),
         Command::CLEAR => { let _ = clear_history(); Ok(()) },
         Command::CUSTOMIZE => run(handle_customize),
+        Command::OPEN => run(handle_open),
         Command::UNKNOWN => {
             let unknown_command = args;
             let color = get_color(CustomizationOptions::ErrorColor, current_config);
@@ -80,6 +82,7 @@ fn get_command_enum(command: &str) -> Command {
         "dircontent" => Command::DIRCONTENT,
         "clear" => Command::CLEAR,
         "customize" => Command::CUSTOMIZE,
+        "open" => Command::OPEN,
         _ => Command::UNKNOWN,
     }
 }
@@ -170,7 +173,7 @@ fn make_dir(args: &mut std::str::SplitWhitespace, _config: &mut Vec<Configuratio
                 print_message(&format!("Failed to create directory: {}", e), color);
             }
             Ok(())
-}
+     }
 
     /// Creates a new file with the given name.
     ///
@@ -457,4 +460,34 @@ pub fn get_config_value(key: CustomizationOptions, configs_vector: &mut Vec<Conf
 pub fn get_color(option: CustomizationOptions, configs_vector: &mut Vec<Configuration>) -> Color {
     let value = get_config_value(option, configs_vector).and_then(|color_str| Color::from_str(&color_str));
     value.unwrap_or(Color::Red)
+}
+
+/// Opens the file at the given file path using the appropriate command for the current platform.
+///
+/// # Arguments
+///
+/// * `file_path`: The path to the file to open.
+/// * `config`: The vector of `Configuration` structs containing the user's customization options.
+///
+/// This function spawns a new process to open the file using the `open` command on macOS,
+/// and the `start` command on Windows. If the file path is not valid or the command fails
+/// to execute, an error message is printed to the console.
+pub fn open_file(file_path: &str, config: &mut Vec<Configuration>) {
+    
+    if Path::new(file_path).exists() == false {
+        print_message(&format!("File not found: {}", file_path), get_color(CustomizationOptions::ErrorColor, config));
+        return;
+    }
+
+    // open file
+    let mut command = ProcCommand::new("open");
+    command.arg(file_path);
+
+    match command.spawn() {
+        Ok(_) => {}
+        Err(e) => {
+            print_message(&format!("Failed to open file: {}", e), get_color(CustomizationOptions::ErrorColor, config));
+        }
+    }
+    
 }

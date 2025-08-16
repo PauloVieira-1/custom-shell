@@ -127,9 +127,7 @@ pub fn handle_customize(args: &mut std::str::SplitWhitespace, config: &mut Vec<C
         }
         Some(CustomizationOptions::ErrorColor) => {change_text_color(config, third_arg, CustomizationOptions::ErrorColor);}
         Some(CustomizationOptions::PromptColor) => {change_text_color(config, third_arg, CustomizationOptions::PromptColor);}
-        Some(CustomizationOptions::PromptText) => {
-            println!("Change Prompt Text to {:?}", third_arg.unwrap_or("default"));
-        }
+        Some(CustomizationOptions::PromptText) => {change_prompt_text(config, third_arg, CustomizationOptions::PromptText);} 
         None => {print_message("Error: Invalid customization option", error_color);}
     }
 
@@ -158,6 +156,25 @@ pub fn change_text_color(config: &mut Vec<Configuration>, third_arg: Option<&str
     update_config(config, &config_path)?;
 
     let formated = format!("Changed {} Color to {}", text_type.as_str(), color.make_str().bold());
+    print_message(&formated, color);
+    Ok(())
+}
+
+
+pub fn change_prompt_text(config: &mut Vec<Configuration>, third_arg: Option<&str>, text_type: CustomizationOptions) -> Result<(), std::io::Error> {
+    let text = third_arg.unwrap_or("Prompt");
+    let color = get_color(CustomizationOptions::TextColor, config);
+
+    for config in config.iter_mut() {
+        if config.option == text_type {
+            config.value = Some(text.to_string());
+        }
+    }
+
+    let config_path = format!("{}/.mysh_config", get_home_dir());
+    update_config(config, &config_path)?;
+
+    let formated = format!("Changed prompt to {}", text.bold());
     print_message(&formated, color);
     Ok(())
 }
@@ -218,7 +235,7 @@ pub fn print_customization_options() {
 ///
 /// Returns a `Result` indicating whether the prompt was printed successfully or not.
 pub fn print_prompt(text: &str, color: Color) -> Result<(), std::io::Error> {
-    let formatted = format!("[{}]> ", text); // note the space for input
+    let formatted = format!("[<{}>] ", text); // note the space for input
     match color {
         Color::Red => print!("{}", formatted.red()),
         Color::Green => print!("{}", formatted.green()),

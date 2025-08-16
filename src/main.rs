@@ -157,11 +157,6 @@ fn main() -> Result<()> {
 // ------------------------------
 // - Let users create shortcuts, e.g., alias ll='ls -la'.
 
-// Piping & Redirection Enhancements
-// ------------------------------
-// - Support multiple pipes (cmd1 | cmd2 | cmd3).
-// - Append redirection (>>).
-
 // Wildcards & Globbing
 // ------------------------------
 // - Enable *.txt or file_?.rs matching.
@@ -170,12 +165,3 @@ fn main() -> Result<()> {
 // ------------------------------
 // - Support jobs, fg, bg commands.
 // - Show running jobs when exiting.
-
-// Built-In Help System
-// ------------------------------
-// - Type help to show available commands and syntax.
-
-// Subshell Execution
-// ------------------------------
-// - Support $(command) or backticks `command` for substitution.
-
